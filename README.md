@@ -13,7 +13,7 @@ This project provides tools to analyze, summarize, and visualize polysomnography
 - Multi-resolution access:
   - Epoch-level (30s)
   - Minute-level (aggregated epochs)
-  - Sleep-stage-level (grouped by stage)
+  - Sleep-stage-level (grouped by epochs)
 
 #### Task 2: Sleep Metrics
 - Query by patient, time range, or sleep stage
@@ -27,7 +27,7 @@ This project provides tools to analyze, summarize, and visualize polysomnography
 - Time-series viewers for physiological data
 - Summary plots:
   - Bar charts (time per stage)
-  - Box plots (signal variation across stages)
+  - Box plots (EMG signal variation across stages)
 - Filters:
   - Patient
   - Sleep stage
