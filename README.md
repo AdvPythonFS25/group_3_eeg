@@ -41,8 +41,15 @@ This project provides tools to analyze, summarize, and visualize polysomnography
 Data is available upon request. Contact the project maintainers.
 
 ### How to Run
-1. Load the dataset using provided scripts.
-2. Use CLI or dashboard UI to explore and analyze data.
-3. Generate visual summaries for research or presentation.
+#### Dependencies:
+`environment.yml` file is provided. 
+To re-create that environment on your machine, run
+`conda env create -f environment.yml`.
+You can then activate and deactivate it with
 
+`conda activate advanced_python_proj` and
+`conda deactivate advanced_python_proj`
+
+#### Convention on where the data is
+You need to place the `.fif` files into the `data` directory.
 
