@@ -5,8 +5,8 @@
 ### Phase 1 – Data Preparation
 - [x] Request and load dataset
 - [ ] Create unified data structure for all signals
-- [ ] Label 30s epochs with sleep stages
-- [ ] Normalize/standardize signals
+- [x] Label 30s epochs with sleep stages
+- [x] Normalize/standardize signals
 - [ ] Implement temporal resolution access (epoch, minute, stage)
 
 ### Phase 2 – Metrics Engine
