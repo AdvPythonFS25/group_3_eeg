@@ -24,7 +24,7 @@ class EEG_Dataset:
         sample = EEG_Sample(path_full) 
         # generating some kind of basic info about each file
         # feel free to add more stuff here
-        index[file_path] = {'info': sample.get_metadata}
+        index[file_path] = {'info': sample.get_metadata()}
         samples[file_path] = sample
 
     self.index = index
