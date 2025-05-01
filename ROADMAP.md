@@ -7,7 +7,7 @@
 - [x] Create unified data structure for all signals
 - [x] Label 30s epochs with sleep stages
 - [x] Normalize/standardize signals
-- [ ] Implement temporal resolution access (epoch, minute, stage)
+- [x] Implement temporal resolution access (epoch, minute, stage)
 
 ### Phase 2 – Metrics Engine
 - [ ] Build querying interface for patient/time/stage filters
