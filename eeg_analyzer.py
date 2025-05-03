@@ -36,7 +36,22 @@ class EEG_Dataset:
     - selection of patients
     - time ranges
     - sleep stages
+    - only do one ate a time, otherwise its too complicated
     '''
+    ##for fname in fileNames:
+    ##f_data = mne.read_epochs(f'./data/{fname}')
+    ### can find age of patients: s_inf = f_data.info['subject_info'] where s_inf['last_name'] is equal to age, i think this is the best way toe query
+    # 'patients' since they dont have names and only random ids
+
+    # maybe this should be progressive; where you query a patient, then you query time ranges, and then sleep stages for the time range
+
+    #for a time range just use the fact that an epoch is 30s so max time is number of epochs and minimun is 0. do this is in seconds and 30s inervals
+
+    
+
+    #for sleep stages, code is already available in psg, but just get sleep stages for the givenepochs selected.
+    
+
     raise NotImplementedError()
 
   def generate_summary_stats(self, filter):
