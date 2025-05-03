@@ -99,7 +99,7 @@ class EEG_Sample:
     mean = data.mean(axis=2, keepdims=True)
     std = data.std(axis=2, keepdims=True)
     normalized = (data - mean) / std
-    self.nomralized_data = normalized
+    self.normalized_data = normalized
   
   def __getitem__(self, val):
     """
