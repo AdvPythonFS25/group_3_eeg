@@ -3,6 +3,7 @@ import os
 import typing
 import mne
 import dataclasses
+import numpy as np
 from enum import Enum, auto
 
 class EEG_Dataset:
@@ -30,29 +31,59 @@ class EEG_Dataset:
     self.index = index
     self.samples = samples
 
-  def query(self, filter):
+  def query(self, filters):
     '''Task 2
     Filter must support:
     - selection of patients
     - time ranges
     - sleep stages
-    - only do one ate a time, otherwise its too complicated
     '''
-    ##for fname in fileNames:
-    ##f_data = mne.read_epochs(f'./data/{fname}')
-    ### can find age of patients: s_inf = f_data.info['subject_info'] where s_inf['last_name'] is equal to age, i think this is the best way toe query
-    # 'patients' since they dont have names and only random ids
+    results = []
 
-    # maybe this should be progressive; where you query a patient, then you query time ranges, and then sleep stages for the time range
+    for file_id, record in self.index.items():
+        #print('-----------')
+        #print(file_id)
+        info = record['info']
+        epochs = self.samples[file_id]  # MNE Epochs object
 
-    #for a time range just use the fact that an epoch is 30s so max time is number of epochs and minimun is 0. do this is in seconds and 30s inervals
+        # Extract subject metadata
+        subject = info.get('subject_info', {})
+        try:
+            age = int(subject.get('last_name', '').replace('yr', ''))
+        except:
+            age = None
+        sex = subject.get('first_name', '').lower()
 
+        # patient filter
+        if 'age' in filters and filters['age'] != age:
+            continue
+        if 'sex' in filters and filters['sex'].lower() != sex:
+            continue
+          
+        #print(f"subject: {subject}")
+        #print(self.samples[file_id])
+
+        sfreq = info['sfreq']
+        #print(f"--------------{epochs.epo.events[:,0]}")
+        #Sleep stage filtering
+        if 'sleep_stages' in filters:
+            #print(f"3333333333333{filters['sleep_stages']}")
+            stage_mask = np.isin(epochs.epo.events[:, 2], filters['sleep_stages'])
+            epochs = epochs[stage_mask]
+
+        # Time range filtering 
+        if 'time_range' in filters:
+            start, end = filters['time_range']
+            epoch_times = epochs.events[:, 0] / sfreq  # onset of each epoch
+            time_mask = (epoch_times >= start) & (epoch_times <= end)
+            epochs = epochs[time_mask]
+
+        if epochs:
+            results.append((file_id, epochs))
+
+    return results
     
 
-    #for sleep stages, code is already available in psg, but just get sleep stages for the givenepochs selected.
-    
-
-    raise NotImplementedError()
 
   def generate_summary_stats(self, filter):
     '''
@@ -82,17 +113,17 @@ class EEG_Sample:
     self.epo = mne.read_epochs(path, preload=False)
     # ... 
 
-  def data(self):
+  """def data(self):
     # access by function to lazy load data
     if self.data is None:
       self.data = self.epo.get_data(copy=False)
-    return self.data
+    return self.data"""
     
   def set_access_pattern(self, new:AccessType):
     self.access_pattern = new
 
   def get_metadata(self):
-    return self.epo['info']
+    return self.epo.info
 
   def summary(self):
     '''
@@ -122,9 +153,9 @@ class EEG_Sample:
     Also this + AccessType takes care of 1) and 2) of the first task
     TODO: handle the minute-level by aggregating two epochs
     """
-    print(val)
+    #print(val)
     if self.access_pattern == AccessType.Epoch:
-      return self.data[val]
+      return self.epo[val]
     if self.access_pattern == AccessType.Minute:
       raise NotImplementedError()
 
@@ -155,7 +186,15 @@ class Filter:
 
 def main():
   dataset = EEG_Dataset('./data')
-  print(dataset.index, dataset.samples)
+  
+  #print(dataset.index.items())
+  print(dataset.query({
+    'age': 28,
+    'sex': 'Male',
+    'time_range': (600, 1800),
+    'sleep_stages': [2, 0]
+  }))
+  #print(dataset.samples.items())
 
 if __name__ == '__main__':
   main()
