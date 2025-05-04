@@ -63,23 +63,40 @@ class EEG_Dataset:
         #print(f"subject: {subject}")
         #print(self.samples[file_id])
 
-        sfreq = info['sfreq']
-        #print(f"--------------{epochs.epo.events[:,0]}")
+        print(f"--------------{epochs.epo.tmax}")
         #Sleep stage filtering
         if 'sleep_stages' in filters:
             #print(f"3333333333333{filters['sleep_stages']}")
             stage_mask = np.isin(epochs.epo.events[:, 2], filters['sleep_stages'])
             epochs = epochs[stage_mask]
 
+        print(f"2222222222222{epochs}")
         # Time range filtering 
+        
+        sfreq = info['sfreq']
+        tmin = epochs.tmin  # typically 0
+        times = epochs.events[:, 0] / sfreq
+        print(f"gggggggggg {times}")
+        
         if 'time_range' in filters:
-            start, end = filters['time_range']
-            epoch_times = epochs.events[:, 0] / sfreq  # onset of each epoch
-            time_mask = (epoch_times >= start) & (epoch_times <= end)
-            epochs = epochs[time_mask]
+          start, end = filters['time_range']
+          sfreq = epochs.info['sfreq']
+
+           # Convert absolute sample positions to seconds
+          epoch_times = epochs.events[:, 0] / sfreq
+
+          # Normalize to relative time (start from 0) 
+          relative_times = epoch_times - epoch_times[0]
+
+          # Mask for epochs within the desired relative time range
+          time_mask = (relative_times >= start) & (relative_times <= end)
+          selected_indices = np.where(time_mask)[0]
+
+        if len(selected_indices) > 0: 
+          epochs = epochs[selected_indices]
 
         if epochs:
-            results.append((file_id, epochs))
+          results.append((file_id, epochs))
 
     return results
     
