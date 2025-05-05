@@ -11,8 +11,8 @@
 
 ### Phase 2 – Metrics Engine
 - [x] Build querying interface for patient/time/stage filters
-- [ ] Compute time spent in each sleep stage
-- [ ] Calculate sleep efficiency per patient
+- [x] Compute time spent in each sleep stage
+- [x] Calculate sleep efficiency per patient
 - [ ] Aggregate mean/variance of signals by stage
 
 ### Phase 3 – Dashboard Development

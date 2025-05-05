@@ -104,50 +104,38 @@ class EEG_Dataset:
     return results
     
 
-
   def generate_summary_stats(self, filter):
-    '''
-    Task 2
-    Per-patient:
-     time spent in each stage,
-     sleep egiciency,
-     mean,
-     variance of each physiological channel per stage,
+    #generate summary statistics indicated in roadmap
+    
+    all_stage_counts = {}  # dictionary keyed by file_id
 
-     i imagine this function would look like
-      ```
-     filtered = self.query(filter)
-     for sample in filtered: sample.plot_summary(filter)
-     ```
-    '''
-  
-    """
-    for sample in filtered:
-      id_to_label = {v: k for k, v in sample.event_id.items()}
-      stage_ids = sample.events[:, 2]  # grab all stage IDs in the sample
-      label_counts = Counter(id_to_label[stage_id] for stage_id in stage_ids)
-    
-      for label, count in label_counts.items():
-        stage_counts[label] = stage_counts.get(label, 0) + count
-      
-      time_spent = {k : f"{v * 30} seconds" for k, v in stage_counts.items() }"""
-    
-    stage_counts = {}
-      
     for file_id in self.index.keys():
-      print(file_id)
       sample = self.samples[file_id]
-      id_to_label = {v: k for k, v in sample.epo.event_id.items()}
-      stage_ids = sample.epo.events[:, 2]  # grab all stage IDs in the sample
-      label_counts = Counter(id_to_label[stage_id] for stage_id in stage_ids)
     
-      for label, count in label_counts.items():
-        stage_counts[label] = stage_counts.get(label, 0) + count
-      
-      time_spent = {k : f"{v * 30} seconds" for k, v in stage_counts.items() }
-      
+      id_to_label = {v: k for k, v in sample.epo.event_id.items()}
+      stage_ids = sample.epo.events[:, 2]  # stage ID per epoch
+      label_counts = Counter(id_to_label[stage_id] for stage_id in stage_ids)
+
+      #  Time spent per stage in seconds (assuming 30s epochs)
+      time_spent = {label: count * 30 for label, count in label_counts.items()}
+
+      # Compute sleep efficiency
+      wake_time = time_spent.get('Sleep stage W', 0)
+      total_time = sum(time_spent.values())
+      sleep_time = total_time - wake_time
+
+      if sleep_time > 0:
+          sleep_efficiency = sleep_time / total_time
+      else:
+        sleep_efficiency = None  
+
+      all_stage_counts[file_id] = {
+        "stage_counts": dict(label_counts),
+        "time_spent": time_spent,
+        "sleep_efficiency": sleep_efficiency
+      }
         
-    return time_spent
+    return all_stage_counts
 
 class AccessType(Enum):
   '''Type to set temporal resolution for accessing EEG sample'''
@@ -158,6 +146,7 @@ class EEG_Sample:
   def __init__(self, path, access_pattern=AccessType.Epoch):
     self.access_pattern = access_pattern
     self.epo = mne.read_epochs(path, preload=False)
+    self.data = self.epo.get_data()
     # ... 
 
   """def data(self):
@@ -191,7 +180,7 @@ class EEG_Sample:
     From task 1
     '''
     # just copy-pasted code from notebook here. Not tested.
-    data = self.data()
+    data = self.data
     mean = data.mean(axis=2, keepdims=True)
     std = data.std(axis=2, keepdims=True)
     normalized = (data - mean) / std
