@@ -5,6 +5,7 @@ import mne
 import dataclasses
 import numpy as np
 from enum import Enum, auto
+from collections import Counter
 
 class EEG_Dataset:
   def __init__(self, path_to_data_directory):
@@ -63,20 +64,20 @@ class EEG_Dataset:
         #print(f"subject: {subject}")
         #print(self.samples[file_id])
 
-        print(f"--------------{epochs.epo.tmax}")
+        #print(f"--------------{epochs.epo.tmax}")
         #Sleep stage filtering
         if 'sleep_stages' in filters:
             #print(f"3333333333333{filters['sleep_stages']}")
             stage_mask = np.isin(epochs.epo.events[:, 2], filters['sleep_stages'])
             epochs = epochs[stage_mask]
 
-        print(f"2222222222222{epochs}")
+        #print(f"2222222222222{epochs}")
         # Time range filtering 
         
         sfreq = info['sfreq']
         tmin = epochs.tmin  # typically 0
         times = epochs.events[:, 0] / sfreq
-        print(f"gggggggggg {times}")
+        #print(f"gggggggggg {times}")
         
         if 'time_range' in filters:
           start, end = filters['time_range']
@@ -96,7 +97,9 @@ class EEG_Dataset:
           epochs = epochs[selected_indices]
 
         if epochs:
-          results.append((file_id, epochs))
+          results.append( epochs)
+          
+        print(f"----------------- {epochs}")
 
     return results
     
@@ -117,7 +120,34 @@ class EEG_Dataset:
      for sample in filtered: sample.plot_summary(filter)
      ```
     '''
-    raise NotImplementedError()
+  
+    """
+    for sample in filtered:
+      id_to_label = {v: k for k, v in sample.event_id.items()}
+      stage_ids = sample.events[:, 2]  # grab all stage IDs in the sample
+      label_counts = Counter(id_to_label[stage_id] for stage_id in stage_ids)
+    
+      for label, count in label_counts.items():
+        stage_counts[label] = stage_counts.get(label, 0) + count
+      
+      time_spent = {k : f"{v * 30} seconds" for k, v in stage_counts.items() }"""
+    
+    stage_counts = {}
+      
+    for file_id in self.index.keys():
+      print(file_id)
+      sample = self.samples[file_id]
+      id_to_label = {v: k for k, v in sample.epo.event_id.items()}
+      stage_ids = sample.epo.events[:, 2]  # grab all stage IDs in the sample
+      label_counts = Counter(id_to_label[stage_id] for stage_id in stage_ids)
+    
+      for label, count in label_counts.items():
+        stage_counts[label] = stage_counts.get(label, 0) + count
+      
+      time_spent = {k : f"{v * 30} seconds" for k, v in stage_counts.items() }
+      
+        
+    return time_spent
 
 class AccessType(Enum):
   '''Type to set temporal resolution for accessing EEG sample'''
@@ -147,7 +177,10 @@ class EEG_Sample:
     for task 2
     just plot all the relevant things here i think
     '''
-    raise NotImplementedError()
+    
+    
+    
+    return self.epo.event_id.items()
   
   def generate_hypnogram(self):
     raise NotImplementedError()
@@ -205,13 +238,19 @@ def main():
   dataset = EEG_Dataset('./data')
   
   #print(dataset.index.items())
-  print(dataset.query({
+  """print(dataset.query({
     'age': 28,
     'sex': 'Male',
     'time_range': (600, 1800),
     'sleep_stages': [2, 0]
-  }))
+  }))"""
   #print(dataset.samples.items())
+  print(dataset.generate_summary_stats({
+    'age': 28,
+    'sex': 'Male',
+    'time_range': (600, 2000),
+    'sleep_stages': [1,2, 0]
+  }))
 
 if __name__ == '__main__':
   main()

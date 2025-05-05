@@ -10,7 +10,7 @@
 - [x] Implement temporal resolution access (epoch, minute, stage)
 
 ### Phase 2 – Metrics Engine
-- [ ] Build querying interface for patient/time/stage filters
+- [x] Build querying interface for patient/time/stage filters
 - [ ] Compute time spent in each sleep stage
 - [ ] Calculate sleep efficiency per patient
 - [ ] Aggregate mean/variance of signals by stage
