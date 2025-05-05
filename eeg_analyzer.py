@@ -146,8 +146,9 @@ class EEG_Sample:
   def __init__(self, path, access_pattern=AccessType.Epoch):
     self.access_pattern = access_pattern
     self.epo = mne.read_epochs(path, preload=False)
-    self.data = self.epo.get_data()
-    # ... 
+
+  def data(self):
+    return self.epo.get_data()
 
   """def data(self):
     # access by function to lazy load data
@@ -166,9 +167,6 @@ class EEG_Sample:
     for task 2
     just plot all the relevant things here i think
     '''
-    
-    
-    
     return self.epo.event_id.items()
   
   def generate_hypnogram(self):
@@ -180,7 +178,7 @@ class EEG_Sample:
     From task 1
     '''
     # just copy-pasted code from notebook here. Not tested.
-    data = self.data
+    data = self.data()
     mean = data.mean(axis=2, keepdims=True)
     std = data.std(axis=2, keepdims=True)
     normalized = (data - mean) / std
@@ -190,13 +188,20 @@ class EEG_Sample:
     """
     Allows us to do stuff like `eeg_sample[10:20]`
     Also this + AccessType takes care of 1) and 2) of the first task
-    TODO: handle the minute-level by aggregating two epochs
     """
-    #print(val)
+    d = self.epo.get_data()
     if self.access_pattern == AccessType.Epoch:
-      return self.epo[val]
-    if self.access_pattern == AccessType.Minute:
-      raise NotImplementedError()
+      return d[val]
+    if self.access_pattern == AccessType.Minute and isinstance(val,np.ndarray):
+      return d[np.repeat(val,2)]
+    elif self.access_pattern == AccessType.Minute and isinstance(val, slice):
+      # Get the start and end indices from the slice
+      start, stop, step = val.start, val.stop, val.step
+      # Create a new slice with the adjusted indices
+      new_start = start * 2
+      new_stop = stop * 2
+      new_step = step * 2 if step is not None else None
+      return d[slice(new_start, new_stop, new_step)]
 
   def group_per_sleep_stage(self):
     '''
@@ -210,7 +215,6 @@ class SleepStage(Enum):
   s_2 = auto()
   s_34 = auto()
   R = auto()
-  
 
 import typing as t
 @dataclasses.dataclass
@@ -225,14 +229,21 @@ class Filter:
 
 def main():
   dataset = EEG_Dataset('./data')
-  
-  #print(dataset.index.items())
-  """print(dataset.query({
-    'age': 28,
-    'sex': 'Male',
-    'time_range': (600, 1800),
-    'sleep_stages': [2, 0]
-  }))"""
+
+  # compare access patterns
+  sample = dataset.samples['PHY_ID0000-epo.fif']
+  sample.set_access_pattern(AccessType.Epoch)
+  t = sample[0:10]
+  sample.set_access_pattern(AccessType.Minute)
+  t2 = sample[0:5]
+  assert np.equal(t, t2).all(), 'Access patterns do not match'
+
+  #print(dataset.query({
+  #  'age': 28,
+  #  'sex': 'Male',
+  #  'time_range': (600, 1800),
+  #  'sleep_stages': [2, 0]
+  #}))
   #print(dataset.samples.items())
   print(dataset.generate_summary_stats({
     'age': 28,
