@@ -5,7 +5,7 @@ import mne
 import dataclasses
 import numpy as np
 from enum import Enum, auto
-from collections import Counter
+from collections import Counter, defaultdict
 
 class EEG_Dataset:
   def __init__(self, path_to_data_directory):
@@ -98,8 +98,6 @@ class EEG_Dataset:
 
         if epochs:
           results.append( epochs)
-          
-        print(f"----------------- {epochs}")
 
     return results
     
@@ -127,12 +125,34 @@ class EEG_Dataset:
       if sleep_time > 0:
           sleep_efficiency = sleep_time / total_time
       else:
-        sleep_efficiency = None  
+        sleep_efficiency = None
+        
+      #Next loop is to calculate mean and variance of eahc object
+      signal_stats = defaultdict(dict)      
+      data = sample.data
+
+      for stage_id in np.unique(stage_ids):
+            stage_label = id_to_label[stage_id]
+            # Indices of epochs for this stage
+            stage_indices = np.where(stage_ids == stage_id)[0]
+            stage_data = data[stage_indices]  # shape: (n_epochs_stage, n_channels, n_times)
+
+            # Compute mean and variance per channel
+            # Shape: (n_channels,)
+            stage_mean = stage_data.mean(axis=(0, 2))  # mean over epochs and time
+            stage_var = stage_data.var(axis=(0, 2))    # variance over epochs and time
+
+            for ch_name, mean_val, var_val in zip(sample.epo.ch_names, stage_mean, stage_var):
+                signal_stats[stage_label][ch_name] = {
+                    'mean': mean_val,
+                    'variance': var_val
+                }  
 
       all_stage_counts[file_id] = {
         "stage_counts": dict(label_counts),
         "time_spent": time_spent,
-        "sleep_efficiency": sleep_efficiency
+        "sleep_efficiency": sleep_efficiency,
+        "signal_stats": signal_stats
       }
         
     return all_stage_counts
@@ -227,19 +247,22 @@ def main():
   dataset = EEG_Dataset('./data')
   
   #print(dataset.index.items())
-  """print(dataset.query({
+  query_ex = dataset.query({
     'age': 28,
     'sex': 'Male',
     'time_range': (600, 1800),
     'sleep_stages': [2, 0]
-  }))"""
+  })
   #print(dataset.samples.items())
-  print(dataset.generate_summary_stats({
+  summary_stats_ex = dataset.generate_summary_stats({
     'age': 28,
     'sex': 'Male',
     'time_range': (600, 2000),
     'sleep_stages': [1,2, 0]
-  }))
+  })
+  print("For phase 2, we implemented our tasks in two methods as part of a greater class. Query patient allows you to query by a combination of none or all of the following attributes: age, sex, sleep stages, and time range. Summary statisitcs calculates time in each sleep stage, sleep efficiency, as well as the mean and variance per signal. Additionally, it calculates the mean and variance of each signal per sleep stage ")
+  print(f"Example of querying for an specific object using patient age and sex, as well as speciic slices of the queried object specifying sleep stage and times {query_ex}")
+  print(f"Example of summary stats for one mne object (from EEG_Dataset.generate_summary_stats): {summary_stats_ex['PHY_ID0005-epo.fif']}")
 
 if __name__ == '__main__':
   main()
