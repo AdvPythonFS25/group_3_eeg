@@ -13,7 +13,7 @@
 - [x] Build querying interface for patient/time/stage filters
 - [x] Compute time spent in each sleep stage
 - [x] Calculate sleep efficiency per patient
-- [ ] Aggregate mean/variance of signals by stage
+- [x] Aggregate mean/variance of signals by stage
 
 ### Phase 3 – Dashboard Development
 - [ ] Create hypnogram visualizer with patient selector
