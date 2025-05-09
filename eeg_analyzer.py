@@ -68,6 +68,7 @@ class EEG_Dataset:
         #Sleep stage filtering
         if 'sleep_stages' in filters:
             #print(f"3333333333333{filters['sleep_stages']}")
+            # this makes it so [0,1,2,3,4] = [W,1,2,3/4,R]
             stage_mask = np.isin(epochs.epo.events[:, 2], filters['sleep_stages'])
             epochs = epochs[stage_mask]
 
@@ -88,13 +89,14 @@ class EEG_Dataset:
 
           # Normalize to relative time (start from 0) 
           relative_times = epoch_times - epoch_times[0]
+          #print(f"tttttttttttttttttttttttttttttttttttttttt {relative_times}")
 
           # Mask for epochs within the desired relative time range
           time_mask = (relative_times >= start) & (relative_times <= end)
           selected_indices = np.where(time_mask)[0]
 
-        if len(selected_indices) > 0: 
-          epochs = epochs[selected_indices]
+          if len(selected_indices) > 0: 
+            epochs = epochs[selected_indices]
 
         if epochs:
           results.append( epochs)
@@ -102,7 +104,7 @@ class EEG_Dataset:
     return results
     
 
-  def generate_summary_stats(self, filter):
+  def generate_summary_stats(self):
     #generate summary statistics indicated in roadmap
     
     all_stage_counts = {}  # dictionary keyed by file_id
@@ -247,6 +249,46 @@ class Filter:
     TODO: apply filter to dataset here
     '''
 
+def hypnogram(dataset):
+  ## Get user inputs for query function
+
+  age = int(input("Enter age (e.g., 25): "))
+  if age <= 0 or 'None':
+    age = None
+    
+    # Ask for sex
+  sex = input("Enter sex (e.g., Male/Female): ").strip()
+  if sex == "None":
+    sex = None
+    
+    # Ask for time range
+  time_range = input("Enter time range in seconds as tuple min 0, max 28890 eg (40, 60): ").strip()
+  if time_range == "None":
+    time_range = None
+    
+    # Ask for sleep stages
+  sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4, where 0 is awake and 4 is REM: ").strip()
+  sleep_stages = [stage.strip().upper() for stage in sleep_stages.split(',')]
+  if sleep_stages == 'None':
+    sleep_stages = None
+  
+  print(age)
+  print(sex)
+  print(time_range)
+  print(sleep_stages)
+  query_params = {}
+  if age is not None:
+    query_params['age'] = age
+  if sex is not None:
+    query_params['sex'] = sex
+  if time_range is not None:
+    query_params['time_range'] = time_range
+  if sleep_stages is not None:
+    query_params['sleep_stages'] = sleep_stages
+    
+  query = dataset.query(query_params)
+  
+
 def main():
   dataset = EEG_Dataset('./data')
 
@@ -262,24 +304,12 @@ def main():
   query_ex = dataset.query({
     'age': 28,
     'sex': 'Male',
-    'time_range': (600, 1800),
-    'sleep_stages': [2, 0]
+    #'time_range': (, 1800),
+    'sleep_stages': [1, 2, 0, 3, 4]
   })
-
-
-  #print(dataset.query({
-  #  'age': 28,
-  #  'sex': 'Male',
-  #  'time_range': (600, 1800),
-  #  'sleep_stages': [2, 0]
-  #}))
+  #hypnogram(dataset)
   #print(dataset.samples.items())
-  summary_stats_ex = dataset.generate_summary_stats({
-    'age': 28,
-    'sex': 'Male',
-    'time_range': (600, 2000),
-    'sleep_stages': [1,2, 0]
-  })
+  #summary_stats_ex = dataset.generate_summary_stats()
   print("For phase 2, we implemented our tasks in two methods as part of a greater class. Query patient allows you to query by a combination of none or all of the following attributes: age, sex, sleep stages, and time range. Summary statisitcs calculates time in each sleep stage, sleep efficiency, as well as the mean and variance per signal. Additionally, it calculates the mean and variance of each signal per sleep stage ")
   print(f"Example of querying for an specific object using patient age and sex, as well as speciic slices of the queried object specifying sleep stage and times {query_ex}")
   print(f"Example of summary stats for one mne object (from EEG_Dataset.generate_summary_stats): {summary_stats_ex['PHY_ID0005-epo.fif']}")
