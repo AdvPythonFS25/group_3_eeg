@@ -97,10 +97,10 @@ class EEG_Dataset:
           selected_indices = np.where(time_mask)[0]
 
           if len(selected_indices) > 0: 
-            print("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm")
-            print(type(epochs))
+            #print("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm")
+            #print(type(epochs))
             epochs = epochs[selected_indices]
-            print(type(epochs))
+            #print(type(epochs))
 
         if epochs.data:
           results.append(epochs)
@@ -135,7 +135,7 @@ class EEG_Dataset:
         
       #Next loop is to calculate mean and variance of eahc object
       signal_stats = defaultdict(dict)      
-      data = sample.data
+      data = sample.data()
 
       for stage_id in np.unique(stage_ids):
             stage_label = id_to_label[stage_id]
@@ -327,12 +327,32 @@ def hypnogram(dataset):
     
   print(query_params)
     
-  query = dataset.query(query_params)
+  query_result = dataset.query(query_params)
   
-  #Doing this right now if only one object is queried, for only age and sex
-  #labels = {v: k for k, v in query[0].epo.event_id.items()}
-  #print(query.shape)
-  labels = query[0].epo.events[:, 2]
+  if not query_result:
+    print("No matching samples found.")
+    return
+
+  elif len(query_result) == 1:
+    selected_sample = query_result[0]
+
+  else:
+    print("Multiple matching samples found:")
+    for i, sample in enumerate(query_result):
+        print(f"{i}: {sample.get_metadata()}")
+
+    while True:
+        try:
+            selection = int(input(f"Select a sample (0–{len(query_result)-1}): "))
+            if 0 <= selection < len(query_result):
+                selected_sample = query_result[selection]
+                break
+            else:
+                print("Invalid selection. Try again.")
+        except ValueError:
+            print("Please enter a valid integer.")
+  
+  labels = selected_sample.epo.events[:, 2]
   stage_labels = ['W', '1', '2', '3/4', 'R']
   plt.figure(figsize=(12, 3))
   plt.plot( labels, drawstyle='steps-post')
@@ -343,6 +363,55 @@ def hypnogram(dataset):
   plt.grid(True)
   plt.tight_layout()
   plt.show()
+  
+def stats_visualizers(dataset):
+  test = dataset.generate_summary_stats()
+  
+  stage_time_totals = defaultdict(list)
+
+  for stats in test.values():
+    for stage, time in stats["time_spent"].items():
+        stage_time_totals[stage].append(time)
+
+  # Compute average time per stage
+  avg_stage_times = {stage: np.mean(times) for stage, times in stage_time_totals.items()}
+
+  # Plot
+  stages = list(avg_stage_times.keys())
+  avg_times = [avg_stage_times[stage] for stage in stages]
+
+  plt.figure(figsize=(10, 6))
+  plt.bar(stages, avg_times, color='skyblue')
+  plt.xlabel("Sleep Stage")
+  plt.ylabel("Average Time Spent (s)")
+  plt.title("Average Time Spent in Each Sleep Stage")
+  plt.xticks(rotation=45)
+  plt.tight_layout()
+  plt.show()
+  
+
+  emg_variances_by_stage = defaultdict(list)
+  emg_channel = "EMG submental"
+
+  for stats in test.values():
+    signal_stats = stats["signal_stats"]
+    for stage, channels in signal_stats.items():
+        if emg_channel in channels:
+            emg_variances_by_stage[stage].append(channels[emg_channel]["variance"])
+
+  # Prepare data for box plot
+  stages = list(emg_variances_by_stage.keys())
+  data = [emg_variances_by_stage[stage] for stage in stages]
+
+  plt.figure(figsize=(10, 6))
+  plt.boxplot(data, labels=stages, showfliers=False)
+  plt.ylabel("EMG Signal Variance")
+  plt.title("EMG Signal Variance Across Sleep Stages")
+  plt.xticks(rotation=45)
+  plt.tight_layout()
+  plt.show()
+
+  
   
 
 def main():
@@ -363,7 +432,8 @@ def main():
     #'time_range': (, 1800),
     'sleep_stages': [1, 2, 0, 3, 4]
   })
-  hypnogram(dataset)
+  #hypnogram(dataset)
+  stats_visualizers(dataset)
   #print(dataset.samples.items())
   #summary_stats_ex = dataset.generate_summary_stats()
   #print("For phase 2, we implemented our tasks in two methods as part of a greater class. Query patient allows you to query by a combination of none or all of the following attributes: age, sex, sleep stages, and time range. Summary statisitcs calculates time in each sleep stage, sleep efficiency, as well as the mean and variance per signal. Additionally, it calculates the mean and variance of each signal per sleep stage ")
