@@ -16,7 +16,7 @@
 - [x] Aggregate mean/variance of signals by stage
 
 ### Phase 3 – Dashboard Development
-- [ ] Create hypnogram visualizer with patient selector
+- [x] Create hypnogram visualizer with patient selector
 - [ ] Build interactive time-series plots with range selectors
 - [ ] Add bar/box plot generators for summary stats
 - [ ] Implement filters (patient, stage, resolution)

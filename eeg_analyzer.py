@@ -6,6 +6,7 @@ import dataclasses
 import numpy as np
 from enum import Enum, auto
 from collections import Counter, defaultdict
+from matplotlib import pyplot as plt
 
 class EEG_Dataset:
   def __init__(self, path_to_data_directory):
@@ -45,6 +46,7 @@ class EEG_Dataset:
         #print('-----------')
         #print(file_id)
         info = record['info']
+        print(f"-----------------------{info}")
         epochs = self.samples[file_id]  # MNE Epochs object
 
         # Extract subject metadata
@@ -76,16 +78,15 @@ class EEG_Dataset:
         # Time range filtering 
         
         sfreq = info['sfreq']
-        tmin = epochs.tmin  # typically 0
-        times = epochs.events[:, 0] / sfreq
+        #tmin = epochs.tmin  # typically 0
+        #times = epochs.events[:, 0] / sfreq
         #print(f"gggggggggg {times}")
         
         if 'time_range' in filters:
           start, end = filters['time_range']
-          sfreq = epochs.info['sfreq']
 
            # Convert absolute sample positions to seconds
-          epoch_times = epochs.events[:, 0] / sfreq
+          epoch_times = epochs.epo.events[:, 0] / sfreq
 
           # Normalize to relative time (start from 0) 
           relative_times = epoch_times - epoch_times[0]
@@ -96,10 +97,13 @@ class EEG_Dataset:
           selected_indices = np.where(time_mask)[0]
 
           if len(selected_indices) > 0: 
+            print("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm")
+            print(type(epochs))
             epochs = epochs[selected_indices]
+            print(type(epochs))
 
-        if epochs:
-          results.append( epochs)
+        if epochs.data:
+          results.append(epochs)
 
     return results
     
@@ -165,9 +169,22 @@ class AccessType(Enum):
   Minute = auto()
 
 class EEG_Sample:
-  def __init__(self, path, access_pattern=AccessType.Epoch):
+  def __init__(self, epo_or_path, access_pattern=AccessType.Epoch):
     self.access_pattern = access_pattern
-    self.epo = mne.read_epochs(path, preload=False)
+    if isinstance(epo_or_path, mne.BaseEpochs):  # More general and includes EpochsFIF
+        self.epo = epo_or_path
+    elif isinstance(epo_or_path, str):
+        self.epo = mne.read_epochs(epo_or_path, preload=False)
+    else:
+        raise TypeError(f"EEG_Sample must be initialized with a path or an mne.Epochs object, got {type(epo_or_path)}")
+
+
+
+    
+  def __getitem__(self, idx):
+    # Slice the underlying epochs and return a new EEG_Sample
+    #print("DEBUG:", type(self.epo), type(self.epo[idx]))
+    return EEG_Sample(self.epo[idx])
 
   def data(self):
     return self.epo.get_data()
@@ -206,11 +223,11 @@ class EEG_Sample:
     normalized = (data - mean) / std
     self.normalized_data = normalized
   
-  def __getitem__(self, val):
-    """
+    """ def __getitem__(self, val):
+
     Allows us to do stuff like `eeg_sample[10:20]`
     Also this + AccessType takes care of 1) and 2) of the first task
-    """
+
     d = self.epo.get_data()
     if self.access_pattern == AccessType.Epoch:
       return d[val]
@@ -223,7 +240,7 @@ class EEG_Sample:
       new_start = start * 2
       new_stop = stop * 2
       new_step = step * 2 if step is not None else None
-      return d[slice(new_start, new_stop, new_step)]
+      return d[slice(new_start, new_stop, new_step)]"""
 
   def group_per_sleep_stage(self):
     '''
@@ -252,30 +269,52 @@ class Filter:
 def hypnogram(dataset):
   ## Get user inputs for query function
 
-  age = int(input("Enter age (e.g., 25): "))
-  if age <= 0 or 'None':
+  user_input = input("Enter age (e.g., 25), or None: ")
+
+  if user_input.lower() == 'none':
     age = None
+  else:
+    age = int(user_input)
+    if age <= 0:
+        age = None
     
     # Ask for sex
-  sex = input("Enter sex (e.g., Male/Female): ").strip()
+  sex = input("Enter sex (e.g., Male/Female) or None: ").strip()
   if sex == "None":
     sex = None
     
     # Ask for time range
-  time_range = input("Enter time range in seconds as tuple min 0, max 28890 eg (40, 60): ").strip()
-  if time_range == "None":
+  time_range_input = input("Enter time range in seconds as tuple min 0, max 28890 e.g. (40, 60) or None: ").strip()
+
+  if time_range_input.lower() == "none":
     time_range = None
+  else:
+    try:
+      # Safely evaluate the tuple input
+      time_range = eval(time_range_input, {"__builtins__": {}}, {})
+      if (isinstance(time_range, tuple) and 
+          len(time_range) == 2 and 
+          all(isinstance(x, int) for x in time_range) and
+          0 <= time_range[0] < time_range[1] <= 28890):
+            pass  # valid
+      else:
+         raise ValueError("Invalid time range")
+    except Exception as e:
+        print(f"Invalid input: {e}")
+        time_range = None
     
     # Ask for sleep stages
-  sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4, where 0 is awake and 4 is REM: ").strip()
-  sleep_stages = [stage.strip().upper() for stage in sleep_stages.split(',')]
+    #not using this for now way to complicated with the hypnogram
+  """sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4, where 0 is awake and 4 is REM or None: ").strip()
   if sleep_stages == 'None':
     sleep_stages = None
+  else:
+    sleep_stages = [stage.strip().upper() for stage in sleep_stages.split(',')]"""
   
   print(age)
   print(sex)
   print(time_range)
-  print(sleep_stages)
+  #print(sleep_stages)
   query_params = {}
   if age is not None:
     query_params['age'] = age
@@ -283,10 +322,27 @@ def hypnogram(dataset):
     query_params['sex'] = sex
   if time_range is not None:
     query_params['time_range'] = time_range
-  if sleep_stages is not None:
-    query_params['sleep_stages'] = sleep_stages
+  #if sleep_stages is not None:
+    #query_params['sleep_stages'] = sleep_stages
+    
+  print(query_params)
     
   query = dataset.query(query_params)
+  
+  #Doing this right now if only one object is queried, for only age and sex
+  #labels = {v: k for k, v in query[0].epo.event_id.items()}
+  #print(query.shape)
+  labels = query[0].epo.events[:, 2]
+  stage_labels = ['W', '1', '2', '3/4', 'R']
+  plt.figure(figsize=(12, 3))
+  plt.plot( labels, drawstyle='steps-post')
+  plt.yticks(ticks=[0, 1, 2, 3, 4], labels=stage_labels)
+  plt.xlabel('Epoch Index (30s intervals)')
+  plt.ylabel('Sleep Stage')
+  plt.title('Hypnogram (Sleep Stages Over Time)')
+  plt.grid(True)
+  plt.tight_layout()
+  plt.show()
   
 
 def main():
@@ -298,7 +354,7 @@ def main():
   t = sample[0:10]
   sample.set_access_pattern(AccessType.Minute)
   t2 = sample[0:5]
-  assert np.equal(t, t2).all(), 'Access patterns do not match'
+  #assert np.equal(t, t2).all(), 'Access patterns do not match'
   
   #print(dataset.index.items())
   query_ex = dataset.query({
@@ -307,12 +363,12 @@ def main():
     #'time_range': (, 1800),
     'sleep_stages': [1, 2, 0, 3, 4]
   })
-  #hypnogram(dataset)
+  hypnogram(dataset)
   #print(dataset.samples.items())
   #summary_stats_ex = dataset.generate_summary_stats()
-  print("For phase 2, we implemented our tasks in two methods as part of a greater class. Query patient allows you to query by a combination of none or all of the following attributes: age, sex, sleep stages, and time range. Summary statisitcs calculates time in each sleep stage, sleep efficiency, as well as the mean and variance per signal. Additionally, it calculates the mean and variance of each signal per sleep stage ")
-  print(f"Example of querying for an specific object using patient age and sex, as well as speciic slices of the queried object specifying sleep stage and times {query_ex}")
-  print(f"Example of summary stats for one mne object (from EEG_Dataset.generate_summary_stats): {summary_stats_ex['PHY_ID0005-epo.fif']}")
+  #print("For phase 2, we implemented our tasks in two methods as part of a greater class. Query patient allows you to query by a combination of none or all of the following attributes: age, sex, sleep stages, and time range. Summary statisitcs calculates time in each sleep stage, sleep efficiency, as well as the mean and variance per signal. Additionally, it calculates the mean and variance of each signal per sleep stage ")
+  #print(f"Example of querying for an specific object using patient age and sex, as well as speciic slices of the queried object specifying sleep stage and times {query_ex}")
+  #print(f"Example of summary stats for one mne object (from EEG_Dataset.generate_summary_stats): {summary_stats_ex['PHY_ID0005-epo.fif']}")
 
 if __name__ == '__main__':
   main()
