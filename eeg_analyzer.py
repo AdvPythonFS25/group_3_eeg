@@ -1,4 +1,3 @@
-
 import os
 import typing
 import mne
@@ -41,7 +40,6 @@ class EEG_Dataset:
     - sleep stages
     '''
     results = []
-  
 
     for file_id, record in self.index.items():
 
@@ -186,9 +184,21 @@ class EEG_Sample:
     else:
         raise TypeError(f"EEG_Sample must be initialized with a path or an mne.Epochs object, got {type(epo_or_path)}")
 
-  def __getitem__(self, idx):
-    # Slice the underlying epochs and return a new EEG_Sample
-    return EEG_Sample(self.epo[idx])
+  def __getitem__(self, val):
+    if self.access_pattern == AccessType.Epoch:
+        # Always return a new EEG_Sample wrapping the selected epochs
+        return EEG_Sample(self.epo[val], access_pattern=self.access_pattern)
+
+    if self.access_pattern == AccessType.Minute and isinstance(val, np.ndarray):
+        return EEG_Sample(self.epo[np.repeat(val, 2)], access_pattern=self.access_pattern)
+
+    elif self.access_pattern == AccessType.Minute and isinstance(val, slice):
+        start, stop, step = val.start, val.stop, val.step
+        new_start = start * 2
+        new_stop = stop * 2
+        return EEG_Sample(self.epo[slice(new_start, new_stop, None)], access_pattern=self.access_pattern)
+
+    raise ValueError("Invalid type for access pattern", val, type(val))
 
   def data(self):
     return self.epo.get_data()
@@ -206,10 +216,6 @@ class EEG_Sample:
     '''
     return self.epo.event_id.items()
   
-  def generate_hypnogram(self):
-    raise NotImplementedError()
-
-  
   def normalize(self):
     '''
     From task 1
@@ -220,31 +226,6 @@ class EEG_Sample:
     std = data.std(axis=2, keepdims=True)
     normalized = (data - mean) / std
     self.normalized_data = normalized
-  
-
-  def group_per_sleep_stage(self):
-    '''
-    For last part of the first task
-    '''
-    raise NotImplementedError()
-
-class SleepStage(Enum):
-  W = auto()
-  s_1 = auto()
-  s_2 = auto()
-  s_34 = auto()
-  R = auto()
-
-import typing as t
-@dataclasses.dataclass
-class Filter:
-  patient:t.Set[str]
-  access_type:AccessType
-  sleepStage:t.Set[SleepStage]
-  def apply(self, dataset ):
-    '''
-    TODO: apply filter to dataset here
-    '''
 
 def hypnogram(dataset):
   ## Get user inputs for query function
@@ -366,16 +347,6 @@ def stats_visualizers(dataset):
 
 def main():
   dataset = EEG_Dataset('./data')
-
-  # compare access patterns
-  sample = dataset.samples['PHY_ID0000-epo.fif']
-  sample.set_access_pattern(AccessType.Epoch)
-  t = sample[0:10]
-  sample.set_access_pattern(AccessType.Minute)
-  t2 = sample[0:5]
-  #assert np.equal(t, t2).all(), 'Access patterns do not match'
-  
-  
   hypnogram(dataset)
   stats_visualizers(dataset)
   #print(dataset.samples.items())
