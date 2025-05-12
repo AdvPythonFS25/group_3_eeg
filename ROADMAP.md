@@ -17,6 +17,6 @@
 
 ### Phase 3 – Dashboard Development
 - [x] Create hypnogram visualizer with patient selector
-- [ ] Build interactive time-series plots with range selectors
+- [x] Build interactive time-series plots with range selectors
 - [x] Add bar/box plot generators for summary stats
-- [ ] Implement filters (patient, stage, resolution)
+- [x] Implement filters (patient, stage, resolution)

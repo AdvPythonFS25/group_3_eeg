@@ -1,0 +1,2 @@
+import pytest
+from eeg_analyzer import EEG_Dataset

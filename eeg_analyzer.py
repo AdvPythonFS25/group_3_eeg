@@ -41,10 +41,10 @@ class EEG_Dataset:
     - sleep stages
     '''
     results = []
+  
 
     for file_id, record in self.index.items():
-        #print('-----------')
-        #print(file_id)
+
         info = record['info']
         print(f"-----------------------{info}")
         epochs = self.samples[file_id]  # MNE Epochs object
@@ -62,25 +62,9 @@ class EEG_Dataset:
             continue
         if 'sex' in filters and filters['sex'].lower() != sex:
             continue
-          
-        #print(f"subject: {subject}")
-        #print(self.samples[file_id])
 
-        #print(f"--------------{epochs.epo.tmax}")
-        #Sleep stage filtering
-        if 'sleep_stages' in filters:
-            #print(f"3333333333333{filters['sleep_stages']}")
-            # this makes it so [0,1,2,3,4] = [W,1,2,3/4,R]
-            stage_mask = np.isin(epochs.epo.events[:, 2], filters['sleep_stages'])
-            epochs = epochs[stage_mask]
-
-        #print(f"2222222222222{epochs}")
-        # Time range filtering 
-        
+        #Manipulation of mne objects starts here 
         sfreq = info['sfreq']
-        #tmin = epochs.tmin  # typically 0
-        #times = epochs.events[:, 0] / sfreq
-        #print(f"gggggggggg {times}")
         
         if 'time_range' in filters:
           start, end = filters['time_range']
@@ -90,22 +74,46 @@ class EEG_Dataset:
 
           # Normalize to relative time (start from 0) 
           relative_times = epoch_times - epoch_times[0]
-          #print(f"tttttttttttttttttttttttttttttttttttttttt {relative_times}")
 
-          # Mask for epochs within the desired relative time range
+          #Mask for epochs within the desired relative time range
           time_mask = (relative_times >= start) & (relative_times <= end)
           selected_indices = np.where(time_mask)[0]
 
           if len(selected_indices) > 0: 
-            #print("mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm")
-            #print(type(epochs))
             epochs = epochs[selected_indices]
-            #print(type(epochs))
+        
+        #keep x axis lenght of time sliced object
+        original_labels = epochs.epo.events[:, 2]
+        masked_labels = None
+        if 'sleep_stages' in filters:
+          desired_stages = filters['sleep_stages']  # e.g., [1, 2]
+          masked_labels = np.array(original_labels, dtype=float)  # cast to float so NaNs work
+          masked_labels[~np.isin(masked_labels, desired_stages)] = np.nan
 
-        if epochs.data:
-          results.append(epochs)
+        if masked_labels is not None and masked_labels.any():
+          # safe to use masked_labels
+          results.append((epochs, masked_labels))
+        else:
+          results.append((epochs, None))
+          
+      # single of multiple sample selection after query from user input
+        
+    print("Multiple matching samples found:")
+    for i, sample in enumerate(results):
+        print(f"{i}: {sample[0]}")
 
-    return results
+    while True:
+        try:
+            selection = int(input(f"Select a sample (0–{len(results)-1}): "))
+            if 0 <= selection < len(results):
+                selected_sample = results[selection]
+                break
+            else:
+                print("Invalid selection. Try again.")
+        except ValueError:
+            print("Please enter a valid integer.")
+
+    return selected_sample
     
 
   def generate_summary_stats(self):
@@ -171,29 +179,19 @@ class AccessType(Enum):
 class EEG_Sample:
   def __init__(self, epo_or_path, access_pattern=AccessType.Epoch):
     self.access_pattern = access_pattern
-    if isinstance(epo_or_path, mne.BaseEpochs):  # More general and includes EpochsFIF
+    if isinstance(epo_or_path, mne.BaseEpochs): 
         self.epo = epo_or_path
     elif isinstance(epo_or_path, str):
         self.epo = mne.read_epochs(epo_or_path, preload=False)
     else:
         raise TypeError(f"EEG_Sample must be initialized with a path or an mne.Epochs object, got {type(epo_or_path)}")
 
-
-
-    
   def __getitem__(self, idx):
     # Slice the underlying epochs and return a new EEG_Sample
-    #print("DEBUG:", type(self.epo), type(self.epo[idx]))
     return EEG_Sample(self.epo[idx])
 
   def data(self):
     return self.epo.get_data()
-
-  """def data(self):
-    # access by function to lazy load data
-    if self.data is None:
-      self.data = self.epo.get_data(copy=False)
-    return self.data"""
     
   def set_access_pattern(self, new:AccessType):
     self.access_pattern = new
@@ -223,24 +221,6 @@ class EEG_Sample:
     normalized = (data - mean) / std
     self.normalized_data = normalized
   
-    """ def __getitem__(self, val):
-
-    Allows us to do stuff like `eeg_sample[10:20]`
-    Also this + AccessType takes care of 1) and 2) of the first task
-
-    d = self.epo.get_data()
-    if self.access_pattern == AccessType.Epoch:
-      return d[val]
-    if self.access_pattern == AccessType.Minute and isinstance(val,np.ndarray):
-      return d[np.repeat(val,2)]
-    elif self.access_pattern == AccessType.Minute and isinstance(val, slice):
-      # Get the start and end indices from the slice
-      start, stop, step = val.start, val.stop, val.step
-      # Create a new slice with the adjusted indices
-      new_start = start * 2
-      new_stop = stop * 2
-      new_step = step * 2 if step is not None else None
-      return d[slice(new_start, new_stop, new_step)]"""
 
   def group_per_sleep_stage(self):
     '''
@@ -295,7 +275,7 @@ def hypnogram(dataset):
       if (isinstance(time_range, tuple) and 
           len(time_range) == 2 and 
           all(isinstance(x, int) for x in time_range) and
-          0 <= time_range[0] < time_range[1] <= 28890):
+          0 <= time_range[0] < time_range[1] <= 1000000000):
             pass  # valid
       else:
          raise ValueError("Invalid time range")
@@ -304,17 +284,12 @@ def hypnogram(dataset):
         time_range = None
     
     # Ask for sleep stages
-    #not using this for now way to complicated with the hypnogram
-  """sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4, where 0 is awake and 4 is REM or None: ").strip()
+  sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4, where 0 is awake and 4 is REM or None: ").strip()
   if sleep_stages == 'None':
     sleep_stages = None
   else:
-    sleep_stages = [stage.strip().upper() for stage in sleep_stages.split(',')]"""
+    sleep_stages = [int(stage.strip()) for stage in sleep_stages.split(',')]
   
-  print(age)
-  print(sex)
-  print(time_range)
-  #print(sleep_stages)
   query_params = {}
   if age is not None:
     query_params['age'] = age
@@ -322,40 +297,18 @@ def hypnogram(dataset):
     query_params['sex'] = sex
   if time_range is not None:
     query_params['time_range'] = time_range
-  #if sleep_stages is not None:
-    #query_params['sleep_stages'] = sleep_stages
-    
-  print(query_params)
+  if sleep_stages is not None:
+    query_params['sleep_stages'] = sleep_stages
     
   query_result = dataset.query(query_params)
   
-  if not query_result:
-    print("No matching samples found.")
-    return
-
-  elif len(query_result) == 1:
-    selected_sample = query_result[0]
-
-  else:
-    print("Multiple matching samples found:")
-    for i, sample in enumerate(query_result):
-        print(f"{i}: {sample.get_metadata()}")
-
-    while True:
-        try:
-            selection = int(input(f"Select a sample (0–{len(query_result)-1}): "))
-            if 0 <= selection < len(query_result):
-                selected_sample = query_result[selection]
-                break
-            else:
-                print("Invalid selection. Try again.")
-        except ValueError:
-            print("Please enter a valid integer.")
-  
-  labels = selected_sample.epo.events[:, 2]
+  selected_epochs, labels = query_result
+  if labels is None:
+    labels = selected_epochs.epo.events[:, 2]
+  x = np.arange(len(labels))
   stage_labels = ['W', '1', '2', '3/4', 'R']
   plt.figure(figsize=(12, 3))
-  plt.plot( labels, drawstyle='steps-post')
+  plt.plot( x, labels, drawstyle='steps-post')
   plt.yticks(ticks=[0, 1, 2, 3, 4], labels=stage_labels)
   plt.xlabel('Epoch Index (30s intervals)')
   plt.ylabel('Sleep Stage')
@@ -411,9 +364,6 @@ def stats_visualizers(dataset):
   plt.tight_layout()
   plt.show()
 
-  
-  
-
 def main():
   dataset = EEG_Dataset('./data')
 
@@ -425,14 +375,8 @@ def main():
   t2 = sample[0:5]
   #assert np.equal(t, t2).all(), 'Access patterns do not match'
   
-  #print(dataset.index.items())
-  query_ex = dataset.query({
-    'age': 28,
-    'sex': 'Male',
-    #'time_range': (, 1800),
-    'sleep_stages': [1, 2, 0, 3, 4]
-  })
-  #hypnogram(dataset)
+  
+  hypnogram(dataset)
   stats_visualizers(dataset)
   #print(dataset.samples.items())
   #summary_stats_ex = dataset.generate_summary_stats()
