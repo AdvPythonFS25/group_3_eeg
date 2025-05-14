@@ -245,7 +245,7 @@ def hypnogram(dataset):
     sex = None
     
     # Ask for time range
-  time_range_input = input("Enter time range in seconds as tuple min 0, max 28890 e.g. (40, 60) or None: ").strip()
+  time_range_input = input("Enter time range in seconds as tuple min 0, e.g. (40, 30000) or None: ").strip()
 
   if time_range_input.lower() == "none":
     time_range = None
@@ -265,7 +265,7 @@ def hypnogram(dataset):
         time_range = None
     
     # Ask for sleep stages
-  sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4, where 0 is awake and 4 is REM or None: ").strip()
+  sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4), where 0 is awake and 4 is REM or None: ").strip()
   if sleep_stages == 'None':
     sleep_stages = None
   else:
@@ -314,16 +314,16 @@ def stats_visualizers(dataset):
   stages = list(avg_stage_times.keys())
   avg_times = [avg_stage_times[stage] for stage in stages]
 
-  plt.figure(figsize=(10, 6))
-  plt.bar(stages, avg_times, color='skyblue')
-  plt.xlabel("Sleep Stage")
-  plt.ylabel("Average Time Spent (s)")
-  plt.title("Average Time Spent in Each Sleep Stage")
-  plt.xticks(rotation=45)
-  plt.tight_layout()
-  plt.show()
-  
+  fig, axes = plt.subplots(1, 2, figsize=(16, 6))  # Adjust width as needed
 
+  #Plot 1: Bar Plot of Average Time per Sleep Stage
+  axes[0].bar(stages, avg_times, color='skyblue')
+  axes[0].set_xlabel("Sleep Stage")
+  axes[0].set_ylabel("Average Time Spent (s)")
+  axes[0].set_title("Average Time Spent in Each Sleep Stage")
+  axes[0].tick_params(axis='x', rotation=45)
+
+  # Prepare data for Plot 2: EMG Variance by Sleep Stage ----
   emg_variances_by_stage = defaultdict(list)
   emg_channel = "EMG submental"
 
@@ -333,15 +333,15 @@ def stats_visualizers(dataset):
         if emg_channel in channels:
             emg_variances_by_stage[stage].append(channels[emg_channel]["variance"])
 
-  # Prepare data for box plot
-  stages = list(emg_variances_by_stage.keys())
-  data = [emg_variances_by_stage[stage] for stage in stages]
+  stages_emg = list(emg_variances_by_stage.keys())
+  data = [emg_variances_by_stage[stage] for stage in stages_emg]
 
-  plt.figure(figsize=(10, 6))
-  plt.boxplot(data, labels=stages, showfliers=False)
-  plt.ylabel("EMG Signal Variance")
-  plt.title("EMG Signal Variance Across Sleep Stages")
-  plt.xticks(rotation=45)
+  # Plot 2: Boxplot of EMG Variances ----
+  axes[1].boxplot(data, tick_labels=stages_emg, showfliers=False)
+  axes[1].set_ylabel("EMG Signal Variance")
+  axes[1].set_title("EMG Signal Variance Across Sleep Stages")
+  axes[1].tick_params(axis='x', rotation=45)
+
   plt.tight_layout()
   plt.show()
 
