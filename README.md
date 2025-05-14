@@ -56,6 +56,9 @@ You need to place the `.fif` files into the `data` directory.
 
 ## Example for query function
 Enter age (e.g., 25), or None: 28
+
 Enter sex (e.g., Male/Female) or None: Male
+
 Enter time range in seconds as tuple min 0 e.g. (40, 60) or None: (500, 350247)
+
 Enter sleep stages comma-separated, e.g.,  0, 1, 2, 3, 4, where 0 is awake and 4 is REM or None: 0,2,3
