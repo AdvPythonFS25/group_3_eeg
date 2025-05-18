@@ -96,9 +96,13 @@ class EEG_Dataset:
           
       # single of multiple sample selection after query from user input
         
-    print("Multiple matching samples found:")
-    for i, sample in enumerate(results):
-        print(f"{i}: {sample[0]}")
+
+    if not results:
+      raise ValueError("No objects match query parameter")
+    else:
+      print("Multiple samples found: ")
+      for i, sample in enumerate(results):
+          print(f"{i}: {sample[0]}")
 
     while True:
         try:
@@ -230,18 +234,30 @@ class EEG_Sample:
 def hypnogram(dataset):
   ## Get user inputs for query function
 
-  user_input = input("Enter age (e.g., 25), or None: ")
-
-  if user_input.lower() == 'none':
-    age = None
-  else:
-    age = int(user_input)
-    if age <= 0:
+  while True:
+    user_input = input("Enter age (e.g., 25), or None: ").strip()
+    
+    if user_input.lower() == 'none':
         age = None
+        break
+    else:
+        try:
+            age = int(user_input)
+            if age > 0:
+                break
+            else:
+                print("Please enter a positive integer or 'None'.")
+        except ValueError:
+            print("Invalid input. Please enter a valid integer or 'None'.")
     
     # Ask for sex
-  sex = input("Enter sex (e.g., Male/Female) or None: ").strip()
-  if sex == "None":
+  
+  sex_input = input("Enter sex (e.g., Male/Female) or None: ").strip()
+
+  if sex_input in ['Male', 'Female']:
+    sex = sex_input
+  else:
+    print("Invalid sex entered, excluding sex from query")
     sex = None
     
     # Ask for time range
@@ -261,15 +277,25 @@ def hypnogram(dataset):
       else:
          raise ValueError("Invalid time range")
     except Exception as e:
-        print(f"Invalid input: {e}")
+        print(f"Invalid input: {e}, excluding time range from query")
         time_range = None
     
     # Ask for sleep stages
-  sleep_stages = input("Enter sleep stages (comma-separated, e.g.,  0, 1, 2, 3, 4), where 0 is awake and 4 is REM or None: ").strip()
-  if sleep_stages == 'None':
+  sleep_stages_input = input("Enter sleep stages (comma-separated, e.g., 0, 1, 2, 3, 4), where 0 is awake and 4 is REM, or None: ").strip()
+
+  if sleep_stages_input.lower() == 'none':
     sleep_stages = None
   else:
-    sleep_stages = [int(stage.strip()) for stage in sleep_stages.split(',')]
+    valid_stages = {'0', '1', '2', '3', '4'}
+    sleep_stages = []
+
+    for stage in sleep_stages_input.split(','):
+        stage = stage.strip()
+        if stage in valid_stages:
+            sleep_stages.append(int(stage))
+
+    if not sleep_stages:
+        sleep_stages = None
   
   query_params = {}
   if age is not None:
@@ -347,8 +373,9 @@ def stats_visualizers(dataset):
 
 def main():
   dataset = EEG_Dataset('./data')
-  hypnogram(dataset)
   stats_visualizers(dataset)
+  hypnogram(dataset)
+
   #print(dataset.samples.items())
   #summary_stats_ex = dataset.generate_summary_stats()
   #print("For phase 2, we implemented our tasks in two methods as part of a greater class. Query patient allows you to query by a combination of none or all of the following attributes: age, sex, sleep stages, and time range. Summary statisitcs calculates time in each sleep stage, sleep efficiency, as well as the mean and variance per signal. Additionally, it calculates the mean and variance of each signal per sleep stage ")
